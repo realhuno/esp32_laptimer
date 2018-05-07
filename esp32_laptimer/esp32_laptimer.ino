@@ -20,7 +20,9 @@ uint64_t chipid;
 //Chip Select Pins 5,17,16,4 
 
 const int RECEIVER_PINS[] = {5, 17, 16, 4};
+const int ADC_PINS[]={36, 39, 34, 35};
 int triggerThreshold[3];
+uint32_t lastLoopTimeStamp[3];
 #define RECEIVER_COUNT 4
 int RCV_CHIP_SELECT = 5;
 const int RCV_CLK = 18;
@@ -76,9 +78,7 @@ struct {
 
   // variables to track the loop time
   uint32_t volatile loopTime = 0;
-
-  //uint32_t volatile lastLoopTimeStamp = 0;
-  uint32_t lastLoopTimeStamp[3];
+  uint32_t volatile lastLoopTimeStamp = 0;
 
 } state[3];
 
@@ -214,17 +214,17 @@ if(workmode==7){
 }
       }
 if(workmode==1 or workmode==3 or workmode==4){
-  // Calculate the time it takes to run the main loop
 
      for (int i=0; i <= 3; i++){
 
 
- 
-  //HELP HERE lastLoopTimeStamp[i] = state[i].lastLoopTimeStamp;
- // state[i].lastLoopTimeStamp = micros();
-  //state[i].loopTime = state[i].lastLoopTimeStamp - lastLoopTimeStamp[i];
+  // Calculate the time it takes to run the main loop
+  lastLoopTimeStamp[i] = state[i].lastLoopTimeStamp;
+  state[i].lastLoopTimeStamp = micros();
+  state[i].loopTime = state[i].lastLoopTimeStamp - lastLoopTimeStamp[i];
 
-  state[i].rssiRaw = analogRead(39);
+
+  state[i].rssiRaw = analogRead(ADC_PINS[i]);
   state[i].rssiSmoothed = (settings[i].filterRatioFloat * (float)state[i].rssiRaw) + ((1.0f-settings[i].filterRatioFloat) * state[i].rssiSmoothed);
   //state.rssiSmoothed = state.rssiRaw;
   state[i].rssi = (int)state[i].rssiSmoothed;
@@ -232,7 +232,9 @@ if(workmode==1 or workmode==3 or workmode==4){
   if (state[i].rssiTrigger > 0) {
     if (!state[i].crossing && state[i].rssi > state[i].rssiTrigger) {
       state[i].crossing = true; // Quad is going through the gate
-      Serial.println("Crossing = True"+ i);
+      Serial.print("Crossing = True Node: ");
+      Serial.println(i);
+      Serial.println(state[i].loopTime);
     }
 
     // Find the peak rssi and the time it occured during a crossing event
