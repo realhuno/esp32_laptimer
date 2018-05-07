@@ -1,7 +1,7 @@
 #include <WiFi.h>
 #include <WiFiUdp.h>
-const char * networkName = "A1-7FB051";
-const char * networkPswd = "hainz2015";
+const char * networkName = "";
+const char * networkPswd = "";
 
 const char * udpAddress = "10.0.0.55";
 const int udpPort = 1236;
