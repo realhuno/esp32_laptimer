@@ -24,11 +24,14 @@ mysocket = socket;
 var dgram = require("dgram");
 var server = dgram.createSocket("udp4");
 server.on("message", function (msg, rinfo) {
-console.log("msg: " + msg);
+console.log(msg.toString());
 if (mysocket != 0){
-mysocket.emit('pass_record', msg);
-//mysocket.emit('pass_record', {'node': 1, 'frequency': 5808, 'timestamp': 111554455});
-console.log("schicke weiter");
+msg=msg.toString();
+dataa=msg.split(" ");
+
+mysocket.emit('pass_record', {'node': ''+dataa[0]+'', 'frequency': 5808, 'timestamp': ''+dataa[1]+''});
+
+
 }
 });
 server.on("listening", function () {

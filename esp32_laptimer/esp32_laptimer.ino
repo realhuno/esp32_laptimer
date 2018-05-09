@@ -314,7 +314,8 @@ if(workmode==1 or workmode==3 or workmode==4){
     //udp.printf("Seconds since boot: %u", millis()/1000);   {'node': 1, 'frequency': 5808, 'timestamp': 111554455}
     //udp.printf("%u %u %u %u", val0, val1, val2,val3);
 
-   udp.printf("{'node': %u, 'frequency': 5808, 'timestamp': 111554455}", i);
+   //udp.printf("{'node': %u, 'frequency': 5808, 'timestamp': 111554455}", i);
+    udp.printf("%u %u", i,lastPass[i].timeStamp);
     
     udp.endPacket();
     delay(25);
@@ -412,6 +413,7 @@ delay(250);
     RCV_FREQ(f_register[synthRegB]);
 delay(250);
 digitalWrite(RECEIVER_PINS[rxid], HIGH);
+settings[rxid].vtxFreq=frequency;
 delay(250);
 }
 
