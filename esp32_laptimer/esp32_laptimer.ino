@@ -1,5 +1,17 @@
+//ESP32 LAPTIMER 4 Workmodes....
+//
+//
+// Init with Serial-Monitor manualy type in line by line
+// m1 switch to tracking mode
+// m6 to active crossing 
+// m4 to calibrate the nodes
+// power on the quad to calibrate the high-level
+// m3 to diable calibration mode
+// m1 to resume tracking
+
 #include <WiFi.h>
 #include <WiFiUdp.h>
+
 const char * networkName = "";
 const char * networkPswd = "";
 
@@ -12,7 +24,7 @@ boolean connected = false;
 
 //The udp library class
 WiFiUDP udp;
-
+WiFiServer server(80);
 
 uint64_t chipid;  
 
@@ -41,9 +53,7 @@ int val1=0;
 int val2=0;
 int val3=0;
 
-const char serialSeperator = ' ';
-const char lineEnding = '\n';
-
+const char serialSeperator = ',';
 
 struct {
   uint16_t volatile vtxFreq = 5800;
@@ -88,7 +98,6 @@ struct {
   uint32_t volatile timeStamp;
   uint8_t volatile lap;
 } lastPass[3];
-
 
 int workmode=0;
 
@@ -158,10 +167,12 @@ delay(500);
 
 
 
-
+workmode=9;
 }
+int b=0;
 
 void loop() {
+  WiFiLocalWebPageCtrl();
 
 if(workmode==0){
 val0 = analogRead(36);    // read the input pin
@@ -169,25 +180,39 @@ val1 = analogRead(39);    // read the input pin
 val2 = analogRead(34);    // read the input pin
 val3 = analogRead(35);    // read the input pin
 
-Serial.print(F("r "));
-Serial.print(val0);
+//Serial.print(F("r "));
+
+
+Serial.print(micros());
+
  Serial.print(serialSeperator);
+
+Serial.print(val0);
+
+ Serial.print(serialSeperator);
+
 Serial.print(val1);
+
  Serial.print(serialSeperator);
 Serial.print(val2);
- Serial.print(serialSeperator);
-Serial.print(val3);
-Serial.print(lineEnding);
 
+ Serial.print(serialSeperator);
+
+Serial.print(val3);
+
+Serial.print("\r\n");
+b=b+1;
  if(connected){
     //Send a packet
-    udp.beginPacket(udpAddress,udpPort);
+    
+  
+     udp.beginPacket(udpAddress,udpPort);
+  
     //udp.printf("Seconds since boot: %u", millis()/1000);
     udp.printf("%u %u %u %u", val0, val1, val2,val3);
-
     
     udp.endPacket();
-    delay(25);
+    delay(5);
   }
 
 
@@ -234,7 +259,7 @@ if(workmode==1 or workmode==3 or workmode==4){
       state[i].crossing = true; // Quad is going through the gate
       Serial.print("Crossing = True Node: ");
       Serial.println(i);
-      Serial.println(state[i].loopTime);
+      
     }
 
     // Find the peak rssi and the time it occured during a crossing event
@@ -270,11 +295,32 @@ if(workmode==1 or workmode==3 or workmode==4){
         lastPass[i].rssiPeak = state[i].rssiPeak;
         lastPass[i].timeStamp = state[i].rssiPeakRawTimeStamp;
         lastPass[i].lap = lastPass[i].lap + 1;
-
+        Serial.print("Lap: ");
+        Serial.println(lastPass[i].lap);
+        Serial.println(lastPass[i].timeStamp);
         state[i].crossing = false;
         state[i].calibrationMode = false;
         state[i].rssiPeakRaw = 0;
         state[i].rssiPeak = 0;
+
+
+      //SEND TO UDP SERVICE GATEWAY
+       if(connected){
+    //Send a packet
+    
+  
+     udp.beginPacket(udpAddress,udpPort);
+  
+    //udp.printf("Seconds since boot: %u", millis()/1000);   {'node': 1, 'frequency': 5808, 'timestamp': 111554455}
+    //udp.printf("%u %u %u %u", val0, val1, val2,val3);
+
+   udp.printf("{'node': %u, 'frequency': 5808, 'timestamp': 111554455}", i);
+    
+    udp.endPacket();
+    delay(25);
+  }
+
+        
       }
     }
   }
@@ -283,7 +329,7 @@ if(workmode==1 or workmode==3 or workmode==4){
 
 
   
-if(workmode>2){
+if(workmode==2){
 
     for (int i=0; i <= 3; i++){
 Serial.println(state[i].crossing);
@@ -295,9 +341,18 @@ Serial.println(state[i].rssi);
 }
 }
 }
+if(workmode==9){
+Serial.println("%HRT  0 0.000 1");
+Serial.println("#RAC");
+Serial.println("@RAC  4 0.000");
+Serial.println("%LAP  4 5.548 1 0 5.548 461 311 211");
 
 
 
+
+delay(1000);
+
+}
 
 
    parseCommands();
@@ -329,6 +384,7 @@ void WiFiEvent(WiFiEvent_t event){
           //This initializes the transfer buffer
           udp.begin(WiFi.localIP(),udpPort);
           connected = true;
+          server.begin();
           break;
       case SYSTEM_EVENT_STA_DISCONNECTED:
           Serial.println("WiFi lost connection");
@@ -377,7 +433,7 @@ void parseCommands() {
                 }
 
                // Serial.print(EepromSettings.rawMode ? 1 : 0, DEC);
-                Serial.print(lineEnding);
+                Serial.print("\r\n");
             } break;
 
             // Set frequency.
@@ -434,7 +490,7 @@ void parseCommands() {
         }
         Serial.find('\n');
         Serial.print(F("ok"));
-        Serial.print(lineEnding);
+        Serial.print("\r\n");
     }
 }
 
@@ -561,4 +617,71 @@ void SERIAL_ENABLE_HIGH()
   delayMicroseconds(1);
 }
 
+/***************************************************
+* Send and receive data from Local Page
+****************************************************/
+void WiFiLocalWebPageCtrl(void)
+{
+  WiFiClient client = server.available();   // listen for incoming clients
+  //client = server.available();
+  if (client) {                             // if you get a client,
+    Serial.println("New Client.");           // print a message out the serial port
+    String currentLine = "";                // make a String to hold incoming data from the client
+    while (client.connected()) {            // loop while the client's connected
+      if (client.available()) {             // if there's bytes to read from the client,
+        char c = client.read();             // read a byte, then
+        Serial.write(c);                    // print it out the serial monitor
+        if (c == '\n') {                    // if the byte is a newline character
+
+          // if the current line is blank, you got two newline characters in a row.
+          // that's the end of the client HTTP request, so send a response:
+          if (currentLine.length() == 0) {
+            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+            // and a content-type so the client knows what's coming, then a blank line:
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/html");
+            client.println();
+
+            // the content of the HTTP response follows the header:
+            //WiFiLocalWebPageCtrl(); 
+              client.print("Temperature now is: ");
+              //client.print(localTemp);
+              client.print("  oC<br>");
+              client.print("Humidity now is:     ");
+              //client.print(localHum);
+              client.print(" % <br>");
+              client.print("<br>");
+              client.print("Analog Data:     ");
+              //client.print(analog_value);
+              client.print("<br>");
+              client.print("<br>");
+              
+              client.print("Click <a href=\"/H\">here</a> to turn the LED on.<br>");
+              client.print("Click <a href=\"/L\">here</a> to turn the LED off.<br>");         
+
+            // The HTTP response ends with another blank line:
+            client.println();
+            // break out of the while loop:
+            break;
+          } else {    // if you got a newline, then clear currentLine:
+            currentLine = "";
+          }
+        } else if (c != '\r') {  // if you got anything else but a carriage return character,
+          currentLine += c;      // add it to the end of the currentLine
+        }
+
+        // Check to see if the client request was "GET /H" or "GET /L":
+        if (currentLine.endsWith("GET /H")) {
+         // digitalWrite(LED_PIN, HIGH);               // GET /H turns the LED on
+        }
+        if (currentLine.endsWith("GET /L")) {
+       //   digitalWrite(LED_PIN, LOW);                // GET /L turns the LED off
+        }
+      }
+    }
+    // close the connection:
+    client.stop();
+    Serial.println("Client Disconnected.");
+  }
+}
 
