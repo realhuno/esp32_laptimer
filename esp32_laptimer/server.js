@@ -23,13 +23,26 @@ mysocket = socket;
 //udp server on 41181
 var dgram = require("dgram");
 var server = dgram.createSocket("udp4");
-server.on("message", function (msg, rinfo) {
-console.log(msg.toString());
-if (mysocket != 0){
-msg=msg.toString();
-dataa=msg.split(" ");
 
-mysocket.emit('pass_record', {'node': ''+dataa[0]+'', 'frequency': 5808, 'timestamp': ''+dataa[1]+''});
+server.on("message", function (msg, rinfo) {
+
+console.log(msg.toString());
+dataa=msg;
+if (mysocket != 0){
+//dataa=msg.tobuffer();
+//dataa=msg.split('|');
+dataa=dataa+''
+dataa=dataa.split('|');
+//mysocket.emit('pass_record', {'node': ''+dataa[0]+'', 'frequency': 5808, 'timestamp': ''+dataa[1]+''});
+//mysocket.emit('pass_record', msg);
+//mysocket.emit('pass_record', {'node': 0, 'frequency': 5808, 'timestamp': 1000014});
+//stringa=''{'node': 0, 'frequency': 5808, 'timestamp': 1000014}'';
+
+mysocket.emit(dataa[0], JSON.parse(dataa[1]));
+//mysocket.emit('pass_record', JSON.parse(msg));
+
+//mysocket.emit('heartbeat', {'current_rssi': [900,400,400,900]});
+
 
 
 }
