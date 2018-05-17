@@ -17,6 +17,7 @@
 #include "FS.h"
 #include "SPIFFS.h"
 
+
 const char * networkName = "";
 const char * networkPswd = "";
 
@@ -59,19 +60,20 @@ int val1 = 0;
 int val2 = 0;
 int val3 = 0;
 
-const char serialSeperator = ',';
+const char serialSeperator = ' ';
+const char lineEnding = '\n';
 
 struct {
   uint16_t volatile vtxFreq = 5800;
   // Subtracted from the peak rssi during a calibration pass to determine the trigger value
-  uint16_t volatile calibrationOffset = 8;
+  uint16_t volatile calibrationOffset = 20;//8
   // Rssi must fall below trigger - settings.calibrationThreshold to end a calibration pass
-  uint16_t volatile calibrationThreshold = 90;
+  uint16_t volatile calibrationThreshold = 60;
   // Rssi must fall below trigger - settings.triggerThreshold to end a normal pass
-  uint16_t volatile triggerThreshold = 40;
+  uint16_t volatile triggerThreshold = 30;
   uint8_t volatile filterRatio = 10;
   float volatile filterRatioFloat = 0.0f;
-} settings[3];
+} settings[4];
 
 struct {
   bool volatile calibrationMode = false;
@@ -96,14 +98,14 @@ struct {
   uint32_t volatile loopTime = 0;
   uint32_t volatile lastLoopTimeStamp = 0;
 
-} state[3];
+} state[4];
 
 struct {
   uint16_t volatile rssiPeakRaw;
   uint16_t volatile rssiPeak;
   uint32_t volatile timeStamp;
   uint8_t volatile lap;
-} lastPass[3];
+} lastPass[4];
 
 
 struct {
@@ -111,14 +113,16 @@ struct {
   uint16_t volatile maximum;
   uint16_t volatile middle;
 
-} rssifilter[3];
+} rssifilter[4];
 
 
-int workmode = 1;
+int workmode = 0;
 
 
-
-
+float multi0=0.25;
+float multi1=0.29;
+float multi2=0.29;
+float multi3=0.41;
 
 void setup() {
 
@@ -136,8 +140,8 @@ void setup() {
     lastPass[i].lap = 0;
     lastPass[i].timeStamp = 0;
 
-    rssifilter[i].minimum=0;
-    rssifilter[i].maximum=1024;
+    rssifilter[i].minimum=100;
+    rssifilter[i].maximum=350;
     
 
   }
@@ -198,7 +202,7 @@ setFrequency(5658,3);
   digitalWrite(4, HIGH);
   delay(500);
 */
-  workmode =1;
+  workmode =2;
 
  SPIFFS.begin();
   //SERVER INIT
@@ -215,47 +219,25 @@ setFrequency(5658,3);
 int b = 0;
 int counter=0;
 void loop() {
- server.handleClient();
      
 
 
  
-  if (workmode == 0) {
-   
-    val0 = analogRead(36);   // read the input pin
-    val1 = analogRead(39);    // read the input pin
-    val2 = analogRead(34);    // read the input pin
-    val3 = analogRead(35);    // read the input pin
+  if (workmode == 0 or workmode==2) {
+   delay(1);
+    val0 = analogRead(36)*multi0;   // read the input pin
+    val1 = analogRead(39)*multi1;    // read the input pin
+    val2 = analogRead(34)*multi2;    // read the input pin
+    val3 = analogRead(35)*multi3;    // read the input pin
  /*
     val0 = rssi(0);    // read the input pin
     val1 =  rssi(1);    // read the input pin
     val2 =  rssi(2);   // read the input pin
     val3 =  rssi(3);    // read the input pin
 */
-
-    //Serial.print(F("r "));
-
-
-    Serial.print(micros());
-
-    Serial.print(serialSeperator);
-
-    Serial.print(val0);
-
-    Serial.print(serialSeperator);
-
-    Serial.print(val1);
-
-    Serial.print(serialSeperator);
-    Serial.print(val2);
-
-    Serial.print(serialSeperator);
-
-    Serial.print(val3);
-
-    Serial.print("\r\n");
-    b = b + 1;
-    if (connected) {
+    if(workmode==0){
+      server.handleClient();
+     if (connected) {
       //Send a packet
 
 
@@ -267,10 +249,39 @@ void loop() {
       udp.endPacket();
       delay(25);
     }
+    //Serial.print(F("r "));
+    Serial.print(micros());
+    Serial.print("'");
+    Serial.print(val0);
+    Serial.print("'");
+    Serial.print(val1);
+    Serial.print("'");
+    Serial.print(val2);
+    Serial.print("'");
+    Serial.print(val3);
+    Serial.print("\r\n");
+    }
+    if(workmode==2){
+    Serial.print(F("r "));
+    Serial.print(val0);
+    Serial.print(serialSeperator);
+    Serial.print(val1);
+    Serial.print(serialSeperator);
+    Serial.print(val2);
+    Serial.print(serialSeperator);
+    Serial.print(val3);
+    //Serial.print(lineEnding);
+    Serial.print("\r\n");
+
+
+      
+    }
+
+
 
 
   }
-
+/*m
   for (int i = 0; i <= 3; i++) {
     if (workmode == 3) {
 
@@ -291,14 +302,15 @@ void loop() {
 
     }
   }
+  */
   if (workmode == 1 or workmode == 3 or workmode == 4) {
 
-counter=counter+1;
+//counter=counter+1;
 
-    
+   
     for (int i = 0; i <= 3; i++) {
 
-
+ 
 
 
       // Calculate the time it takes to run the main loop
@@ -306,8 +318,11 @@ counter=counter+1;
       state[i].lastLoopTimeStamp = micros();
       state[i].loopTime = state[i].lastLoopTimeStamp - lastLoopTimeStamp[i];
 
-
-      state[i].rssiRaw = analogRead(ADC_PINS[i]);
+      if(i==0){ state[i].rssiRaw = analogRead(ADC_PINS[i])*multi0; }
+      if(i==1){ state[i].rssiRaw = analogRead(ADC_PINS[i])*multi1; }
+      if(i==2){ state[i].rssiRaw = analogRead(ADC_PINS[i])*multi2; }
+      if(i==3){ state[i].rssiRaw = analogRead(ADC_PINS[i])*multi3; }
+         
       state[i].rssiSmoothed = (settings[i].filterRatioFloat * (float)state[i].rssiRaw) + ((1.0f - settings[i].filterRatioFloat) * state[i].rssiSmoothed);
       //state.rssiSmoothed = state.rssiRaw;
       state[i].rssi = (int)state[i].rssiSmoothed;
@@ -316,7 +331,7 @@ counter=counter+1;
         if (!state[i].crossing && state[i].rssi > state[i].rssiTrigger) {
           state[i].crossing = true; // Quad is going through the gate
           Serial.print("Crossing = True Node: ");
-          Serial.println(i);
+         Serial.println(i);
 
         }
 
@@ -363,6 +378,7 @@ counter=counter+1;
 
 
             //SEND TO UDP SERVICE GATEWAY
+            /*
             if (connected) {
               //Send a packet
 
@@ -371,14 +387,17 @@ counter=counter+1;
               //{"node":0,"'frequency": 5808, "timestamp": 11111}
               //udp.printf("Seconds since boot: %u", millis()/1000);   {'node': 1, 'frequency': 5808, 'timestamp': 111554455}
               //udp.printf("%u %u %u %u", val0, val1, val2,val3);
-
+              //{'current_rssi': self.current_rssi,'trigger_rssi': self.trigger_rssi,'peak_rssi': self.peak_rssi}
               //udp.printf("{'node': %u, 'frequency': 5808, 'timestamp': 111554455}", i);
               //udp.printf("%u %u", i,lastPass[i].timeStamp);
               udp.printf("pass_record|{\"node\":%u,\"frequency\": %u, \"timestamp\": %u}", i, settings[i].vtxFreq,lastPass[i].timeStamp);
               udp.endPacket();
+              udp.beginPacket(udpAddress, udpPort);
+              udp.printf("heartbeat|{\"current_rssi\": [%u,%u,%u,%u],\"trigger_rssi\": [444,444,444,444], \"peak_rssi\": [500,550,550,500]}",state[0].rssiRaw,state[1].rssiRaw,state[2].rssiRaw,state[3].rssiRaw);
+              udp.endPacket();
         
             }
-
+*/
 
           }
         }
@@ -565,17 +584,33 @@ void parseCommands() {
       // Status
       case '?': {
           Serial.print(F("? "));
-          Serial.print(RECEIVER_COUNT, DEC);
+          //Serial.print(RECEIVER_COUNT, DEC);
+          Serial.print("4");
           Serial.print(serialSeperator);
 
-          for (uint8_t i = 0; i < RECEIVER_COUNT; i++) {
+          for (int i = 0; i <= 3; i++) {
             // Serial.print(EepromSettings.frequency[i]);
+            Serial.print(settings[i].vtxFreq);
             Serial.print(serialSeperator);
           }
 
           // Serial.print(EepromSettings.rawMode ? 1 : 0, DEC);
+          Serial.print("1");
           Serial.print("\r\n");
         } break;
+
+//Multiplikator
+case 'a': {
+          uint8_t indexa = Serial.parseInt();
+          float valuea = Serial.parseFloat();
+
+          if(indexa==0){ multi0=valuea;}
+          if(indexa==1){ multi1=valuea;}
+          if(indexa==2){ multi2=valuea;}
+          if(indexa==3){ multi3=valuea;}
+       
+        } break;
+
 
       // Set frequency.
       case 'f': {
@@ -610,8 +645,15 @@ void parseCommands() {
             state[i].rssiTrigger = state[i].rssi - settings[i].calibrationOffset;
             lastPass[i].rssiPeakRaw = 0;
             lastPass[i].rssiPeak = 0;
+             lastPass[i].lap = 0;
+                lastPass[i].timeStamp = 0;
             state[i].rssiPeakRaw = 0;
             state[i].rssiPeakRawTimeStamp = 0;
+
+
+
+
+
             //   EepromSettings.rssiMax[i] =
             //       (uint16_t) receivers[i].rssiRaw;
           }
@@ -645,17 +687,41 @@ Serial.println("Done");
 
       // Disable raw mode.
       case 's': {
-          //  EepromSettings.rawMode = false;
-          //  EepromSettings.save();
+Serial.println("##########################SETTING################# ALL NODES");
+   for (int i = 0; i <= 3; i++) {
+            Serial.print("#######Node");
+            Serial.print(i);
+            Serial.println("#######");
+            Serial.println(state[i].calibrationMode);
+            Serial.println(state[i].rssiTrigger);
+            Serial.println(state[i].rssi);
+            Serial.println(settings[i].calibrationOffset);
+            Serial.println(lastPass[i].rssiPeakRaw);
+            Serial.println(lastPass[i].rssiPeak);
+            Serial.println(lastPass[i].lap);
+            Serial.println(lastPass[i].timeStamp);
+            Serial.println(state[i].rssiPeakRaw);
+            Serial.println(state[i].rssiPeakRawTimeStamp);
+            Serial.println("##########################");
+            
+
+
+
+
+            //   EepromSettings.rssiMax[i] =
+            //       (uint16_t) receivers[i].rssiRaw;
+          }
+
+       
         } break;
       case 'm': {
           uint8_t todo = Serial.parseInt();
           workmode = todo;
         }
     }
-    Serial.find('\n');
-    Serial.print(F("ok"));
-    Serial.print("\r\n");
+    //Serial.find('\n');
+   // Serial.print(F("ok"));
+   // Serial.print("\r\n");
   }
 }
 
