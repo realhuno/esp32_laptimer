@@ -1,11 +1,4 @@
-Just install node-red
+Don´t use this ino File for the ESP32!!!! Old testing Stuff!!! 
+Only use the node-red flow!!! node-red.txt!!
 
-run in cmd
-
-node server.js
-
-
-and on secondary cmd
-
-
-node-red
+Use this one as Firmware https://github.com/bilson/wizardtracker-hardware/
