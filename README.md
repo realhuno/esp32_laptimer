@@ -1,7 +1,7 @@
 Test for ESP32 as Laptimer!
 
 Please use this as Firmware on the ESP32
-https://github.com/bilson/wizardtracker-hardware/
+https://github.com/bilson/wizardtracker-hardware/tree/esp32
 
 Check this lines in the config file
 #define ESP32
